@@ -28,6 +28,7 @@ def get_action(epsilon, dim2, vet_board, empty):
     # else:
         # To do...
 
+
 def get_state(dim2, vet_board, empty, o):
     """
     Converts the ternary representation of the board in a decimal number.
@@ -50,3 +51,11 @@ def get_state(dim2, vet_board, empty, o):
         state = state + digit*3**i
 
     return state
+
+
+def get_reward(game_over, winner, current_player):
+    """1st get-reward strategy"""
+    if game_over and winner == current_player:
+        return 1
+    else:
+        return 0
