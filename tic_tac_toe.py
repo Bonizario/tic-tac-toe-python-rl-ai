@@ -1,14 +1,68 @@
 import numpy as np
 
-"""Environment variables"""
-dim = 3
-dim2 = dim * dim
 
-vet_board = np.zeros(dim2)
+def main():
+    """Environment variables"""
+    dim = 3
+    dim2 = dim * dim
 
-empty = 0
-o = 1
-x = -1
+    vet_board = np.zeros(dim2)
+
+    empty = 0
+    o = 1
+    x = -1
+    N_episodes = 30000
+
+    # initializing the Q-table
+    Q = np.zeros((3**dim2, dim2))
+
+    for episode in range(N_episodes):
+        Q = play_one_episode(Q)
+        # epsilon =
+        # print()
+
+
+def play_one_episode(Q, o, x, epsilon, dim2, vet_board, empty):
+    game_over = False
+    p1 = o
+    p2 = x
+    current_player = []
+    recorded_state_action_reward = []
+    state = get_state(dim2, vet_board, empty, o)
+
+    while not game_over:
+        # switch players
+        current_player = p2 if current_player == p1 else p1
+
+        # current_player makes a move
+        if current_player == p1:
+            action = take_action(epsilon, dim2, vet_board, empty) # apprentice robot
+        else:
+            action = take_action(1, dim2, vet_board, empty) # always random moves
+
+        # filling the board
+        vet_board[action] = current_player
+
+        # checking if the match is over
+        game_over, winner = game_over()
+
+        # getting rewards
+        reward = get_reward(game_over, winner, current_player)
+
+        # changing to a new state
+        new_state = get_state(dim2, vet_board, empty, o)
+
+        # storage of the apprentice robot action-reward-state sequence
+        if current_player == p1:
+            recorded_state_action_reward.append((state, action, reward))
+
+        # Q-table will be stored in a external for loop
+
+        # atualizing state
+        state = new_state
+
+    for s_a_r in reversed(recorded_state_action_reward):
+        Q[state, action] = (1 - alpha)*Q[state, action] + alpha*(reward + gamma*np.max(Q[new_state, :]))
 
 
 def get_action(epsilon, dim2, vet_board, empty):
