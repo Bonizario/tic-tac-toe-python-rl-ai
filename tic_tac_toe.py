@@ -6,42 +6,41 @@ def main():
     dim = 3
     dim2 = dim * dim
 
-    # vet_board = np.zeros(dim2)
-
     empty = 0
     o = 1
     x = -1
-    N_episodes = 30000
 
-    # initializing the Q-table
-    Q = np.zeros((3**dim2, dim2))
+    # initializing the Q-table with 0.4
+    Q = 0.4*np.ones((3**dim2, dim2))
 
     # episodes parameters
-    N_episodes = 30000
+    N_episodes = 100000
     alpha = 0.5  # learning rate
     gamma = 0.95  # discount rate
     min_epsilon = 0  # 0% probability to take random actions
     max_epsilon = 1  # 100% probability to take random actions
-    decay_rate = 0.001  # if too high, epsilon will approach 0 too fast
+    decay_rate = 0.001  # if decay_rate is too high, epsilon will approach 0 too fast
     epsilon = 1
 
     for episode in range(N_episodes):
-        Q = play_one_episode(Q, o, x, epsilon, dim2, empty, alpha, gamma)
+        Q = play_one_episode(Q, o, x, epsilon, dim, dim2, empty, alpha, gamma)
         epsilon = min_epsilon + (max_epsilon - min_epsilon) * \
             np.exp(-decay_rate * episode)
         if episode % 1000 == 0:
             print(epsilon)
 
-    # play_teste()
+    while True:
+        play_teste(Q, o, x, epsilon, dim, dim2, empty)
 
 
-def play_teste(Q, dim2, empty, x, o):
+def play_teste(Q, o, x, epsilon, dim, dim2, empty):
     vet_board = np.zeros(dim2)
     game_over = False
     p1 = o
     p2 = x
     current_player = []
     state = get_state(dim2, vet_board, empty, o)
+    draw_board(vet_board, x, o, dim)
 
     while not game_over:
         # switch players
@@ -57,8 +56,11 @@ def play_teste(Q, dim2, empty, x, o):
         # filling the board
         vet_board[action] = current_player
 
+        # drawing board
+        draw_board(vet_board, x, o, dim)
+
         # checking if the match is over
-        game_over, winner = game_over()
+        game_over, winner = check_game_over(vet_board, dim, x, o)
 
         # changing to a new state
         new_state = get_state(dim2, vet_board, empty, o)
@@ -66,8 +68,10 @@ def play_teste(Q, dim2, empty, x, o):
         # atualizing state, Q-table will be stored in a external for loop
         state = new_state
 
+    print(f'{winner} ganhou!')
 
-def play_one_episode(Q, o, x, epsilon, dim2, empty, alpha, gamma):
+
+def play_one_episode(Q, o, x, epsilon, dim, dim2, empty, alpha, gamma):
     vet_board = np.zeros(dim2)
     game_over = False
     p1 = o
@@ -75,7 +79,7 @@ def play_one_episode(Q, o, x, epsilon, dim2, empty, alpha, gamma):
     current_player = []
     recorded_state_action_reward = []
     state = get_state(dim2, vet_board, empty, o)
-
+    # draw_board(vet_board, x, o, dim)
     while not game_over:
         # switch players
         current_player = p2 if current_player == p1 else p1
@@ -91,11 +95,14 @@ def play_one_episode(Q, o, x, epsilon, dim2, empty, alpha, gamma):
         # filling the board
         vet_board[action] = current_player
 
+        # drawing board
+        # draw_board(vet_board, x, o, dim)
+
         # checking if the match is over
-        game_over, winner = game_over()
+        game_over, winner = check_game_over(vet_board, dim, x, o)
 
         # getting rewards
-        reward = get_reward(game_over, winner, current_player)
+        reward = get_reward(game_over, winner, p1)
 
         # changing to a new state
         new_state = get_state(dim2, vet_board, empty, o)
@@ -107,6 +114,16 @@ def play_one_episode(Q, o, x, epsilon, dim2, empty, alpha, gamma):
         # atualizing state, Q-table will be stored in a external for loop
         state = new_state
 
+        maximum = 0
+        for s_a_r in reversed(recorded_state_action_reward):
+            s = s_a_r[0]
+            a = s_a_r[1]
+            r = s_a_r[2]
+            Q[s, a] = (1-alpha)*Q[s, a] + alpha*(r + gamma*maximum)
+            maximum = np.max(Q[s, :])
+
+        return Q
+
 
 def get_action(Q, state, epsilon, dim2, vet_board, empty):
     """Returns the action to be taken by the agent"""
@@ -114,7 +131,7 @@ def get_action(Q, state, epsilon, dim2, vet_board, empty):
 
     possible_actions = []
     for i in range(dim2):
-        if vet_board(i) == empty:
+        if vet_board[i] == empty:
             possible_actions.append(i)
 
     if r <= epsilon:
@@ -126,8 +143,9 @@ def get_action(Q, state, epsilon, dim2, vet_board, empty):
         Q_vals = Q[state, :]
         Q_possible = [Q_vals[i] for i in possible_actions]
         max_Q_possible = np.max(Q_possible)  # not random for 2 or more max
-        actions_max = [i for i in possible_actions if Q_vals == max_Q_possible]
+        actions_max = [i for i in possible_actions if Q_vals[i] == max_Q_possible]
         action = np.random.choice(actions_max)
+        return action
 
 
 def get_state(dim2, vet_board, empty, o):
@@ -154,15 +172,28 @@ def get_state(dim2, vet_board, empty, o):
     return state
 
 
-def get_reward(game_over, winner, current_player):
-    """1st get-reward strategy"""
-    if game_over and winner == current_player:
-        return 1
+"""
+def get_reward(game_over, winner, p1):
+    1st get-reward strategy
+    if game_over and winner == p1:
+        reward = 1
     else:
-        return 0
+        reward = 0
+    return reward
+"""
+
+def get_reward(game_over, winner, p1):
+    """2nd get-reward strategy"""
+    if game_over and winner == p1:
+        reward = 1
+    elif game_over and winner=='tie':
+        reward = 0.5
+    else:
+        reward = 0
+    return reward
 
 
-def game_over(vet_board, dim, x, o):
+def check_game_over(vet_board, dim, x, o):
     mat_board = np.reshape(vet_board, (dim, dim))
 
     for player in (x, o):
@@ -184,7 +215,7 @@ def game_over(vet_board, dim, x, o):
             return True, winner
 
     if np.all((mat_board == 0) is False):  # all fields are not empty
-        winner = None
+        winner = 'tie'
         return True, winner
 
     # game in not over yet
@@ -213,3 +244,7 @@ def draw_board(vet_board, x, o, dim):
             else:
                 print('-  ', end='')
         print('')
+
+
+if __name__ == '__main__':
+    main()
